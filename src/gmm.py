@@ -192,12 +192,16 @@ class GMM:
 
         return x
     
-    def iterEM(self, n_k, start, step, n_mc):
+    def iterEM(self, n_k, start, step, n_mc, n_samples):
         kk = [x * step + start for x in range(1, n_k + 1)]
         q = np.empty((n_k, n_mc))
         loglik = np.empty(n_k)
         aic = np.empty(n_k)
         bic = np.empty(n_k)
+
+        muhat = None
+        sigmahat = None
+        pihat = None
 
         for i in range(n_k):
             if i == 0:
@@ -211,12 +215,20 @@ class GMM:
 
             mu, sigma, pi = self.em1(kk[i], mu=mu, sigma=sigma, pi=pi)
 
-            q[i]= [np.quantile(self.sample_gmm(mu, sigma, pi, n_mc), 0.1) for _ in range(n_mc)]
+            q[i]= [np.quantile(self.sample_gmm(mu, sigma, pi, n_samples), 0.1) for _ in range(n_mc)]
             loglik[i] = self.observed_loglik(mu, sigma, pi)
             p = self._num_p(kk[i])
             aic[i] = self.aic(loglik[i], p)
             bic[i] = self.bic(loglik[i], p)
 
+            if i == 0:
+                muhat = mu
+                sigmahat = sigma
+                pihat = pi
+            elif aic[i] <= np.min(aic[:i]):
+                muhat = mu
+                sigmahat = sigma
+                pihat = pi
             print(f"{i} {kk[i]:.2f} {loglik[i]:.2f} {aic[i]:.2f} {bic[i]:.2f}")
 
-        return kk, q, loglik, aic, bic
+        return muhat, sigmahat, pihat, kk, q, loglik, aic, bic
