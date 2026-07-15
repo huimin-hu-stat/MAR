@@ -219,4 +219,4 @@ class GMM:
 
             print(f"{i} {kk[i]:.2f} {loglik[i]:.2f} {aic[i]:.2f} {bic[i]:.2f}")
 
-        return kk, q.T, loglik, aic, bic
+        return kk, q, loglik, aic, bic
