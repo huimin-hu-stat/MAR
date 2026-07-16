@@ -17,7 +17,8 @@ class GMM:
         self.eps = eps
     
     def log_gaussian_masked(self, mu, sigma):
-        """Compute logp(xi) for each cluster
+        """
+        Compute logp(xi) for each cluster
         """
         mu = mu.to(dtype=self.dtype, device=self.device) # (K, d)
         sigma = sigma.to(dtype=self.dtype, device=self.device) # (K, d)
@@ -54,7 +55,7 @@ class GMM:
     
         return torch.logsumexp(log_mix, dim=0).sum()
     
-    def em1(self, K, max_iters=1000, mu=None, sigma=None, pi=None):
+    def em1(self, K, max_iters=1000, mu=None, sigma=None, pi=None, verbose=False):
         """
         EM for fixed K -- number of components
         """
@@ -143,9 +144,9 @@ class GMM:
 
             loglik_new = self.observed_loglik(mu, sigma, pi)
             rel_change = torch.abs(loglik_new - loglik_old) / (torch.abs(loglik_old) + self.eps)
-            if rel_change <= 0:
+            if rel_change <= 0 and verbose:
                 print(f"Converged at iteration {it}, rel_change={rel_change.item():.2e}")
-            break
+                break
 
         return mu, sigma, pi
     
@@ -192,9 +193,38 @@ class GMM:
 
         return x
     
-    def iterEM(self, n_k, start, step, n_mc, n_samples):
+    def batch_corrcoef_2d(self, X):
+        """
+        Compute Pearson correlation for many (N,2) datasets.
+
+        X: (B, N, 2)
+        B groups
+        N samples
+        2 variables
+
+        returns:
+        (B,) correlation coefficients
+        """
+
+        x = X[:, :, 0]   # (B,N)
+        y = X[:, :, 1]   # (B,N)
+
+        x = x - x.mean(dim=1, keepdim=True)
+        y = y - y.mean(dim=1, keepdim=True)
+
+        cov = (x * y).sum(dim=1) / (X.shape[1] - 1)
+
+        std_x = x.std(dim=1)
+        std_y = y.std(dim=1)
+
+        corr = cov / (std_x * std_y)
+
+        return corr
+    
+    def iterEM(self, n_k, start, step, n_mc, n_samples, q=0.1, criterion='aic'):
         kk = [x * step + start for x in range(1, n_k + 1)]
-        q = np.empty((n_k, n_mc))
+        q_x1 = np.empty((n_k, n_mc))
+        rho = np.empty((n_k, n_mc))
         loglik = np.empty(n_k)
         aic = np.empty(n_k)
         bic = np.empty(n_k)
@@ -215,7 +245,15 @@ class GMM:
 
             mu, sigma, pi = self.em1(kk[i], mu=mu, sigma=sigma, pi=pi)
 
-            q[i]= [np.quantile(self.sample_gmm(mu, sigma, pi, n_samples), 0.1) for _ in range(n_mc)]
+            new_samples = torch.stack(
+                                    [
+                                        self.sample_gmm(mu, sigma, pi, n_samples)
+                                        for _ in range(n_mc)
+                                    ],
+                                    dim=0
+                                ).to(device=self.device, dtype=self.dtype) #(n_mc, n_samples, d)
+            q_x1[i] = np.quantile(new_samples[:, 0], q) #(n_mc)
+            rho[i] = self.batch_corrcoef_2d(new_samples[:, :2])
             loglik[i] = self.observed_loglik(mu, sigma, pi)
             p = self._num_p(kk[i])
             aic[i] = self.aic(loglik[i], p)
@@ -225,10 +263,20 @@ class GMM:
                 muhat = mu
                 sigmahat = sigma
                 pihat = pi
-            elif aic[i] <= np.min(aic[:i]):
+            elif criterion=='aic' and aic[i] <= np.min(aic[:i]):
                 muhat = mu
                 sigmahat = sigma
                 pihat = pi
-            print(f"{i} {kk[i]:.2f} {loglik[i]:.2f} {aic[i]:.2f} {bic[i]:.2f}")
+            elif criterion=='bic' and bic[i] <= np.min(bic[:i]):
+                muhat = mu
+                sigmahat = sigma
+                pihat = pi
+            elif criterion=='loglik' and loglik[i] >= np.max(loglik[:i]):
+                muhat = mu
+                sigmahat = sigma
+                pihat = pi
+            #print(f"{i} {kk[i]:.2f} {loglik[i]:.2f} {aic[i]:.2f} {bic[i]:.2f}")
 
-        return muhat, sigmahat, pihat, kk, q, loglik, aic, bic
+        print(f'choice of k = {len(muhat)}')
+
+        return muhat, sigmahat, pihat, kk, q_x1, rho, loglik, aic, bic

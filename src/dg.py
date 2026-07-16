@@ -1,29 +1,47 @@
 import torch
 from typing import Optional, Tuple
 
+from torch.distributions import Normal, StudentT, MultivariateNormal, Categorical
+
+
+# TO DO: add gaussian mixture data
 
 class DataGenerator:
 
     def __init__(
         self,
+        #d: int = 3,
+        #N: int = 2000,
         distr: str = "Normal",
+        mu: torch.tensor = None,
+        sigma: torch.tensor = None,
+        pi: torch.tensor = None,
         alpha: float = 0.7,
         df: Optional[int] = None,
         device: str = "cpu",
         dtype=torch.float64,
     ):
-
+        #self.d = d
+        #self.N = N
         self.distr = distr
         self.alpha = alpha
         self.df = df
         self.device = device
         self.dtype = dtype
 
+        self.mu = mu
+        self.sigma = sigma
+        self.pi = pi
+
         if distr == "Student t" and df is None:
             raise ValueError(
                 "Student t requires df"
             )
-
+        
+        if distr == 'gaussian_mixture' and (mu is None or sigma is None or pi is None):
+            raise ValueError(
+                "Gassian mixture requires mu, sigma, pi"
+            )
 
     # --------------------------------------------------
     # Utilities
@@ -45,7 +63,6 @@ class DataGenerator:
         n: int,
         d: int
     ):
-
         """
         Generate dependent uniforms.
             conditional CDF: F(x2|x1) = x2 + alpha*(2*x1-1)*(x2^2 - x2)
@@ -88,11 +105,11 @@ class DataGenerator:
             return torch.log(U/(1-U))
 
         elif self.distr == "Normal":
-            normal = torch.distributions.Normal(0, 1)
+            normal = Normal(0, 1)
             return normal.icdf(U)
 
         elif self.distr == "Student t":
-            tdist = torch.distributions.StudentT(self.df)
+            tdist = StudentT(self.df)
             return tdist.icdf(U)
 
         else:
@@ -121,9 +138,33 @@ class DataGenerator:
         cov[0,1] = self.alpha
         cov[1,0] = self.alpha
 
-        mvn = torch.distributions.MultivariateNormal(mean, cov)
+        mvn = MultivariateNormal(mean, cov)
 
         return mvn.sample((n,))
+    
+    def sample_gmm(
+        self,
+        n
+    ):
+        _, d = self.mu.shape
+
+        # normalize weights
+        pi = torch.softmax(self.pi, dim=0)
+
+        # 1. sample component indices
+        z = torch.multinomial(pi, n, replacement=True)  # (N,)
+
+        # 2. sample standard normals
+        eps = torch.randn(n, d)
+
+        # 3. gather parameters for each sample
+        mu_z = self.mu[z]        # (N, d)
+        sigma_z = self.sigma[z]  # (N, d)
+
+        # 4. reparameterization
+        x = mu_z + sigma_z * eps
+        return x
+    
 
     # --------------------------------------------------
     # Truth generation
@@ -135,6 +176,9 @@ class DataGenerator:
     ):
         if self.distr == "Normal":
             return self.sample_gaussian(n, d)
+        
+        if self.distr == 'gaussian_mixture':
+            return self.sample_gmm(n)
 
         U = self.sample_copula(n, d)
 
@@ -155,17 +199,27 @@ class DataGenerator:
             )
 
         if self.distr == "Normal":
-            normal = torch.distributions.Normal(0,1)
+            normal = Normal(0,1)
             return (
                 normal.cdf(X12[:,0]),
                 normal.cdf(X12[:,1])
             )
 
         if self.distr == "Student t":
-            tdist = torch.distributions.StudentT(self.df)
+            tdist = StudentT(self.df)
             return (
                 tdist.cdf(X12[:,0]),
                 tdist.cdf(X12[:,1])
+            )
+        
+        if self.distr == 'gaussian_mixture':
+            
+            normal1 = Normal(self.mu[:, 0].unsqueeze(1), self.sigma[:, 0].unsqueeze(1))
+            normal2 = Normal(self.mu[:, 1].unsqueeze(1), self.sigma[:, 1].unsqueeze(1))
+
+            return (
+                self.pi @ normal1.cdf(X12[:,0].repeat(len(self.mu), 1)),
+                self.pi @ normal2.cdf(X12[:,1].repeat(len(self.mu), 1))
             )
 
         raise NotImplementedError
@@ -187,9 +241,7 @@ class DataGenerator:
             dim=1
         )
 
-        choice = torch.distributions.Categorical(
-            probs
-        ).sample()
+        choice = Categorical(probs).sample()
 
         n,d = X.shape
 
