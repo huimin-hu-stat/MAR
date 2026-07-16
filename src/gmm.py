@@ -77,11 +77,11 @@ class GMM:
         else:
             pi = pi.to(device=self.device, dtype=self.dtype)
 
-        it=0
+        it = 0
 
         for _ in range(max_iters):
 
-            it=it+1
+            it += 1
             
             loglik_old = self.observed_loglik(mu, sigma, pi)
 
@@ -114,6 +114,8 @@ class GMM:
             # =====================
             diff = self.X.unsqueeze(0) - mu.unsqueeze(1)  # (K, N, d)
 
+            # nominator: r * diff^2 * M summed over n samples
+            # denominator: r * M summed over n samples
             if self.cov_type == 'diag':
                 sigma = torch.sqrt(
                 (r.unsqueeze(2) * (diff ** 2) * self.M.unsqueeze(0)).sum(dim=1)
@@ -121,24 +123,30 @@ class GMM:
                 + self.eps
                 )
 
+            # nominator: r * diff^2 * M summed over d features and n samples
+            # denominator: r * M summed over d features and n samples
             elif self.cov_type == 'id':
                 sigma = torch.sqrt(
-                (r * ((diff ** 2) * self.M.unsqueeze(0)).sum(dim=2)).sum(dim=1)
-                / ((r.unsqueeze(2) * self.M.unsqueeze(0)).sum(dim=(1,2)) + self.eps)
+                (r.unsqueeze(2) * (diff ** 2) * self.M.unsqueeze(0)).sum(dim=(1,2))
+                / ((r @ self.M).sum(dim=1) + self.eps)
                 + self.eps
                 ).repeat(self.d, 1).T
 
+            # norminator: r * diff^2 * M summed over k clusters and n samples
+            # denominator: r * M summed over k clusters and n samples
             elif self.cov_type == 'uni_diag':
                 sigma = torch.sqrt(
                     (r.unsqueeze(2) * (diff ** 2) * self.M.unsqueeze(0)).sum(dim=(0,1))
-                    / ((r.unsqueeze(2) * self.M.unsqueeze(0)).sum(dim=(0,1)) + self.eps)
+                    / ((r @ self.M).sum(dim=0) + self.eps)
                     + self.eps
                 ).repeat(K, 1) # d    
 
+            # nominator: r * diff^2 * M summed over k clusters, d features and n samples
+            # denominator: r * M summed over k clusters, d features and n samples
             elif self.cov_type == 'uni_id':
                 sigma = torch.sqrt(
-                    (r * (((diff ** 2) * self.M.unsqueeze(0)).sum(dim=2))).sum()
-                    / ((r.unsqueeze(2) * self.M.unsqueeze(0)).sum() + self.eps)
+                    (r.unsqueeze(2) * (diff ** 2) * self.M.unsqueeze(0)).sum()
+                    / ((r @ self.M).sum() + self.eps)
                     + self.eps
                 ).repeat(K, self.d)
 
@@ -151,13 +159,13 @@ class GMM:
         return mu, sigma, pi
     
     def _num_p(self, K):
-        if self.cov_type == 'diag':
+        if self.cov_type == 'diag': # for each cluster, 2d gaussian parameters, plus k-1 weights
             return (2 * self.d + 1) * K - 1
-        elif self.cov_type == 'id':
+        elif self.cov_type == 'id': # for each cluster, d+1 gaussian parameters, plus k-1 weights
             return (self.d + 2) * K - 1
-        elif self.cov_type == 'uni_diag':
+        elif self.cov_type == 'uni_diag': # for each cluster, d location parameters, plus d shared scale parameters, k-1 weights
             return (self.d + 1) * K + self.d - 1
-        elif self.cov_type == 'uni_id':
+        elif self.cov_type == 'uni_id': # for each cluster, d location parameters, plus 1 shared scale parameter, k-1 weights
             return (self.d + 1) * K
     
     def aic(self, loglik, p):
