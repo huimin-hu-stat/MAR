@@ -260,7 +260,7 @@ class GMM:
                                     ],
                                     dim=0
                                 ).to(device=self.device, dtype=self.dtype) #(n_mc, n_samples, d)
-            q_x1[i] = np.quantile(new_samples[:, 0], q) #(n_mc)
+            q_x1[i] = torch.quantile(new_samples[:,:,0], q, dim=1) #(n_mc)
             rho[i] = self.batch_corrcoef_2d(new_samples[:, :2])
             loglik[i] = self.observed_loglik(mu, sigma, pi)
             p = self._num_p(kk[i])
