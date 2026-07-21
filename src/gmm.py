@@ -57,7 +57,10 @@ class GMM:
     
     def em1(self, K, max_iters=1000, mu=None, sigma=None, pi=None, verbose=False):
         """
-        EM for fixed K -- number of components
+        EM for fixed K
+            mu: (K, d)
+            sigma: (K, d)
+            pi: (K,)
         """
         K = int(K)
         # ---- init ----
@@ -88,6 +91,7 @@ class GMM:
             # =====================
             # E-step
             # =====================
+            # pi = 
             log_px = self.log_gaussian_masked(mu, sigma)  # (K, N)
 
             log_pi = torch.log(pi + self.eps).unsqueeze(1)      # (K, 1)
