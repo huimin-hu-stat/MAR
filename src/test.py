@@ -42,7 +42,7 @@ class TorchGaussianMixture:
         #idx = torch.randperm(N, device=X.device)[:self.K]
         idx = torch.randperm(X_valid.shape[0])[:self.K]
 
-        self.mu = X[idx]
+        self.mu = X_valid[idx]
 
         # Equal weights
         self.pi = torch.ones(
@@ -123,13 +123,19 @@ class TorchGaussianMixture:
 
         self.pi = Nk / N
 
-        resp_M = resp[:, :, None] * M[:, None, :] # (N, K, D)
+        Nk_M = torch.einsum(
+            "nk,nd->kd",
+            resp,
+            M
+        )
 
-        Nk_M = resp_M.sum(dim=0) # (K, D)
-
-        self.mu = (
-            resp.T @ X # (K, N) @ (N, D)
-        ) / Nk_M
+        self.mu = torch.einsum(
+            "nk,nd,nd->kd",
+            resp,
+            M,
+            X
+        )
+        self.mu /= Nk_M
 
         diff = (
             X[:,None,:]
@@ -138,8 +144,9 @@ class TorchGaussianMixture:
         )
 
         self.cov = torch.einsum(
-            "nkd,nkd,nkd->kd",
-            resp_M,
+            "nk,nd,nkd,nkd->kd",
+            resp,
+            M,
             diff,
             diff
         )
