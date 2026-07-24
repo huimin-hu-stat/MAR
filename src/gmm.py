@@ -66,6 +66,7 @@ class GMM:
         # ---- init ----
         if mu is None:
             idx = torch.randint(0, self.N, (K,), device=self.device)
+            # fix!
             mu = self.X[idx] + 0.1 * torch.randn(K, self.d, device=self.device)
         else:
             mu = mu.to(device=self.device, dtype=self.dtype)
