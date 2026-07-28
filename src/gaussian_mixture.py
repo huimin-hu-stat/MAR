@@ -2,7 +2,7 @@ import torch
 import math
 
 
-class TorchGaussianMixture:
+class SingleMixture:
 
     def __init__(
         self,
@@ -21,7 +21,6 @@ class TorchGaussianMixture:
         self.reg_covar = reg_covar
         self.n_init = n_init
         self.device = device
-        #self.best_params = None
 
 
     def _initialize(self, X, M):
@@ -172,19 +171,8 @@ class TorchGaussianMixture:
         # Regularization
         self.cov = self.cov.clone()
         self.cov += self.reg_covar
-        """
-        eye = torch.eye(
-                    D,
-                    device=X.device
-                )
-        
-        
-                self.cov += (
-                    self.reg_covar *
-                    eye[None,:,:]
-                )
-        """
 
+        return self
 
     def fit(self,X, M):
 
@@ -200,7 +188,7 @@ class TorchGaussianMixture:
             device=self.device
         )
 
-        best_ll = -float("inf")
+        self.best_ll = -float("inf")
 
         for init in range(self.n_init):
 
@@ -225,9 +213,9 @@ class TorchGaussianMixture:
 
                 previous = ll
 
-                if ll > best_ll:
+                if ll > self.best_ll:
 
-                    best_ll = ll
+                    self.best_ll = ll
 
                     self.best_params = (
                         self.pi.clone(),
@@ -238,30 +226,6 @@ class TorchGaussianMixture:
         self.pi, self.mu, self.cov = self.best_params
 
         return self
-
-
-    """
-    def predict(self,X):
-
-        X = torch.as_tensor(
-            X,
-            device=self.device,
-            dtype=torch.float32
-        )
-
-
-        log_prob = (
-            self._estimate_log_prob(X)
-            +
-            torch.log(self.pi)
-        )
-
-
-        return torch.argmax(
-            log_prob,
-            dim=1
-        )
-        """
     
     def sample(self, n_samples):
         # Choose mixture component for each sample
@@ -282,3 +246,90 @@ class TorchGaussianMixture:
         X = mu + torch.sqrt(var) * eps
 
         return X, comp
+
+
+
+class GaussianMixtureMAR:
+
+    def __init__(
+        self,
+        k_range,
+        criterion="bic",
+        cov_type='uni_diag',
+        max_iter=100,
+        tol=1e-4,
+        reg_covar=1e-6,
+        n_init=5,
+        device="cpu"
+    ):
+        self.k_range = k_range
+        self.criterion = criterion
+        self.n_init = n_init
+        self.cov_type = cov_type
+        self.max_iter = max_iter
+        self.tol = tol
+        self.reg_covar = reg_covar
+        self.n_init = n_init
+        self.device = device
+
+    def _num_p(self, D, K):
+
+        if self.cov_type == 'diag': # for each cluster, 2d gaussian parameters, plus k-1 weights
+            return (2 * D + 1) * K - 1
+
+        if self.cov_type == 'id': # for each cluster, d+1 gaussian parameters, plus k-1 weights
+            return (D + 2) * K - 1
+
+        if self.cov_type == 'uni_diag': # for each cluster, d location parameters, plus d shared scale parameters, k-1 weights
+            return (D + 1) * K + D - 1
+
+        if self.cov_type == 'uni_id': # for each cluster, d location parameters, plus 1 shared scale parameter, k-1 weights
+            return (D + 1) * K
+
+    def aic(self, loglik, p):
+        return -2 * loglik + 2 * p
+    
+    def bic(self, loglik, p, N):
+        return -2 * loglik + p * math.log(N)
+
+    def fit(self, X, M):
+
+        N, D = X.shape
+
+        best_score = float("inf")
+
+        for k in self.k_range:
+
+            p = self._num_p(D, k)
+
+            model = SingleMixture(
+                k,
+                cov_type=self.cov_type,
+                max_iter=self.max_iter,
+                tol=self.tol,
+                reg_covar=self.reg_covar,
+                n_init=self.n_init,
+                device=self.device,
+            )
+
+            model.fit(X, M)
+
+            loglik = model.best_ll
+
+            score = (
+                self.bic(loglik, p, N)
+                if self.criterion == "bic"
+                else self.aic(loglik, p)
+            )
+
+            if score < best_score:
+                best_score = score
+                self.best_model = model
+                self.best_k = k
+                self.best_params = model.best_params
+                self.best_ll = model.best_ll
+
+        return self
+
+    def sample(self, n_samples):
+        return self.best_model.sample(n_samples)
