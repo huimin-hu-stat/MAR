@@ -4,7 +4,7 @@ import os
 # IMPORTANT: set R_HOME BEFORE importing rpy2
 # ============================================================
 
-os.environ["R_HOME"] = "/Library/Frameworks/R.framework/Resources"
+#os.environ["R_HOME"] = "/Library/Frameworks/R.framework/Resources"
 
 
 import itertools
