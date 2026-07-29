@@ -9,8 +9,8 @@ class SingleMixture:
         n_components,
         cov_type,
         max_iter=100,
-        tol=1e-4,
-        reg_covar=1e-6,
+        tol=1e-6,
+        reg_covar=1e-2,
         n_init=5,
         device="cpu"
     ):
@@ -55,6 +55,8 @@ class SingleMixture:
             (self.K, D),
             device=X.device)
 
+        return self
+
 
     def _estimate_log_prob(self, X, M):
         """
@@ -67,7 +69,7 @@ class SingleMixture:
         N, D = X.shape
 
         # diff: (N,K,D)
-        diff = X[:, None, :] * M[:, None, :] - self.mu[None, :, :] * M[:, None, :]
+        diff = (X[:, None, :] - self.mu[None, :, :]) * M[:, None, :]
 
         # variance: (K,D)
         var = self.cov
@@ -81,11 +83,11 @@ class SingleMixture:
         # log |Sigma| = sum(log(var))
         # (K,D) * (N,K,D)
         # mask out the missingness
-        log_det = (torch.log(var)[None, :, :] * M[:, None, :]).sum(dim=(0,2))
+        log_det = (torch.log(var)[None, :, :] * M[:, None, :]).sum(dim=(2))
 
         return -0.5 * (
             D * math.log(2 * math.pi)
-            + log_det[None, :] #(1,K)
+            + log_det #(N,K)
             + mahal #(N,K)
         )
 
@@ -120,7 +122,7 @@ class SingleMixture:
 
         Nk = resp.sum(dim=0)
 
-        self.pi = Nk / N
+        self.pi = Nk / Nk.sum()
 
         Nk_M = torch.einsum(
             "nk,nd->kd",
@@ -188,13 +190,13 @@ class SingleMixture:
             device=self.device
         )
 
-        self.best_ll = -float("inf")
+        self.best_ll = -torch.inf
 
         for init in range(self.n_init):
 
             self._initialize(X, M)
 
-            previous = None
+            previous = -torch.inf
 
             for iteration in range(self.max_iter):
 
@@ -206,22 +208,21 @@ class SingleMixture:
                     resp
                 )
 
-                if previous is not None:
-
-                    if abs(ll-previous) < self.tol:
-                        break
+                change = torch.abs(ll - previous).item()
+                if change < self.tol:
+                    break
 
                 previous = ll
 
-                if ll > self.best_ll:
+            if ll > self.best_ll:
 
-                    self.best_ll = ll
+                self.best_ll = ll
 
-                    self.best_params = (
-                        self.pi.clone(),
-                        self.mu.clone(),
-                        self.cov.clone()
-                    )
+                self.best_params = (
+                    self.pi.clone(),
+                    self.mu.clone(),
+                    self.cov.clone()
+                )
 
         self.pi, self.mu, self.cov = self.best_params
 
