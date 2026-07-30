@@ -334,3 +334,18 @@ class GaussianMixtureMAR:
 
     def sample(self, n_samples):
         return self.best_model.sample(n_samples)
+
+    def evaluate(self, X):
+        log_prob = self.best_model._estimate_log_prob(X, torch.ones_like(X))
+        weighted = (
+                    log_prob # (N, K)
+                    +
+                    torch.log(self.best_model.pi) # (K,)
+                )
+        
+        log_norm = torch.logsumexp(
+                    weighted,
+                    dim=1,
+                    keepdim=True
+                ) # (N,)
+        return log_norm.mean()
