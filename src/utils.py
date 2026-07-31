@@ -32,14 +32,18 @@ def comp_density_score(kde, gms, X):
     return np.insert(gms_score, 0, kde_score)
 
 
-def plot1(res_c, res_m, pc, pm, legend=True):
+def plot(res_c, res_m, pc, pm, legend=True, is_ds=True):
     # '#ffb703'
     # Same colors used for the boxes
-    colors_c = ['#8ecae6'] + ['#90be6d'] * (len(pc) + 1)
-    colors_m = ['#8ecae6'] + ['#90be6d'] * (len(pm) + 1)
+    if is_ds:
+        colors_c = ['#8ecae6'] + ['#90be6d'] * (len(pc) + 1)
+        colors_m = ['#8ecae6'] + ['#90be6d'] * (len(pm) + 1)
+    else:
+        colors_c = ['#fbfdff'] + ["#0a4aa9"] * (len(pc) + 1)
+        colors_m = ["#fbfdff"] + ['#0a4aa9'] * (len(pm) + 1)
 
-    labels_c = [1, 1, *pc]
-    labels_m = [0, 0, *pm]
+    labels_c = ['KDE', 1, *pc]
+    labels_m = ['KDE', 0, *pm]
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
@@ -51,10 +55,17 @@ def plot1(res_c, res_m, pc, pm, legend=True):
         )
 
     # Legend
-    legend_handles = [
-        Patch(facecolor='#8ecae6', edgecolor='black', alpha=0.7, label='Gaussian KDE'),
-        Patch(facecolor='#90be6d', edgecolor='black', alpha=0.7, label='MAR Gaussian Mixture')
-    ]
+    if is_ds:
+        legend_handles = [
+            Patch(facecolor='#8ecae6', edgecolor='black', alpha=0.7, label='Gaussian KDE'),
+            Patch(facecolor='#90be6d', edgecolor='black', alpha=0.7, label='MAR Gaussian Mixture')
+        ]
+
+    else:
+        legend_handles = [
+                    Patch(facecolor="#fbfdff", edgecolor='black', alpha=0.7, label='Gaussian KDE'),
+                    Patch(facecolor='#0a4aa9', edgecolor='black', alpha=0.7, label='MAR Gaussian Mixture')
+                ]
     
 
     # left plot
@@ -107,14 +118,24 @@ def plot1(res_c, res_m, pc, pm, legend=True):
         )
 
     # Shared y label
-    fig.text(
-        -0.01,              # horizontal position
-        0.5,               # vertical position
-        "Density score",
-        va="center",
-        rotation="vertical",
-        fontsize=13
-    )
+    if is_ds:
+        fig.text(
+            -0.01,              # horizontal position
+            0.5,               # vertical position
+            "Density score",
+            va="center",
+            rotation="vertical",
+            fontsize=13
+        )
+    else:
+        fig.text(
+            -0.01,              # horizontal position
+            0.5,               # vertical position
+            "Energy distance",
+            va="center",
+            rotation="vertical",
+            fontsize=13
+        )
 
     plt.tight_layout()
     plt.show()
