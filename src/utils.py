@@ -1,0 +1,120 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+
+
+def missingness_dist(d, p_complete, p_all_missing=None):
+    """
+    Functions to set the marginal distribution of the missingness variable
+    - input1: the probability of the completely observed
+    - input2: the probability of the worst missingness, i.e., all missing except the last column
+    """
+    n_pats = 2**(d-1) - 1
+    if p_all_missing is None:
+        pm = np.ones(n_pats)
+        pm /= pm.sum()
+        pm *= 1 - p_complete
+        return np.append(pm, p_complete)
+
+    pm = np.ones(n_pats - 1)
+    pm /= pm.sum()
+    pm *= 1 - p_complete - p_all_missing
+    pm = np.insert(pm, 0, p_all_missing)
+    return np.append(pm, p_complete)
+
+
+def comp_density_score(kde, gms, X):
+    kde_score = np.mean(kde.logpdf(X.T))
+    m = len(gms)
+    gms_score = np.empty(m)
+    for i in range(m):
+        gms_score[i] = gms[i].evaluate(X).item()
+    return np.insert(gms_score, 0, kde_score)
+
+
+def plot1(res_c, res_m, pc, pm, legend=True):
+    # '#ffb703'
+    # Same colors used for the boxes
+    colors_c = ['#8ecae6'] + ['#90be6d'] * (len(pc) + 1)
+    colors_m = ['#8ecae6'] + ['#90be6d'] * (len(pm) + 1)
+
+    labels_c = [1, 1, *pc]
+    labels_m = [0, 0, *pm]
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    for ax in axes:
+        ax.grid(
+            True,
+            linestyle='--',
+            alpha=0.5
+        )
+
+    # Legend
+    legend_handles = [
+        Patch(facecolor='#8ecae6', edgecolor='black', alpha=0.7, label='Gaussian KDE'),
+        Patch(facecolor='#90be6d', edgecolor='black', alpha=0.7, label='MAR Gaussian Mixture')
+    ]
+    
+
+    # left plot
+    bp1 = axes[0].boxplot(
+        res_c,
+        patch_artist=True,
+        showfliers=False,
+        widths=0.3
+    )
+    axes[0].set_xlabel(r'$\mathbb{P}(M=\mathbf{1})$', fontsize=13)
+    axes[0].set_xticks(
+        range(1, len(labels_c) + 1),
+        labels_c,
+        fontsize=11,
+        rotation=0
+    )
+
+    for patch, color in zip(bp1['boxes'], colors_c):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.7)
+
+    # right plot
+    bp2 = axes[1].boxplot(
+        res_m,
+        patch_artist=True,
+        showfliers=False,
+        widths=0.2
+    )
+    axes[1].set_xlabel(r'$\mathbb{P}(M=(0,0,1))$', fontsize=13)
+    axes[1].set_xticks(
+        range(1, len(labels_m) + 1),
+        labels_m,
+        fontsize=11,
+        rotation=0
+    )
+    
+    for patch, color in zip(bp2['boxes'], colors_m):
+            patch.set_facecolor(color)
+            patch.set_alpha(0.7)
+
+    if legend:
+        # shared legend
+        fig.legend(
+        handles=legend_handles,
+        loc='upper center',
+        bbox_to_anchor=(0.5, 1.2),
+        frameon=True,
+        fontsize=11,
+        ncol=1
+        )
+
+    # Shared y label
+    fig.text(
+        -0.01,              # horizontal position
+        0.5,               # vertical position
+        "Density score",
+        va="center",
+        rotation="vertical",
+        fontsize=13
+    )
+
+    plt.tight_layout()
+    plt.show()
