@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
+import os
+
 
 def missingness_dist(d, p_complete, p_all_missing=None):
     """
@@ -139,3 +141,98 @@ def plot(res_c, res_m, pc, pm, legend=True, is_ds=True):
 
     plt.tight_layout()
     plt.show()
+
+
+def plot1(ds, ned, pc, save_tag=None, legend=False):
+
+    os.makedirs("figs", exist_ok=True)
+
+    # '#ffb703'
+    # Same colors used for the boxes
+    colors = ['#8ecae6'] + ['#90be6d'] * (len(pc) + 1)
+
+    labels = ['KDE', 1, *pc]
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    for ax in axes:
+        ax.grid(
+            True,
+            linestyle='--',
+            alpha=0.5
+        )
+
+
+    legend_handles = [
+        Patch(facecolor='#8ecae6', edgecolor='black', alpha=0.7, label='Gaussian KDE'),
+        Patch(facecolor='#90be6d', edgecolor='black', alpha=0.7, label='MAR Gaussian Mixture')
+    ]
+
+    # left plot
+    bp1 = axes[0].boxplot(
+        ds,
+        patch_artist=True,
+        showfliers=False,
+        widths=0.3
+    )
+    #axes[0].set_xlabel(r'$\mathbb{P}(M=\mathbf{1})$', fontsize=13)
+    axes[0].set_xticks(
+        range(1, len(labels) + 1),
+        labels,
+        fontsize=11,
+        rotation=0
+    )
+    axes[0].set_title('Density score')
+
+    for patch, color in zip(bp1['boxes'], colors):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.7)
+
+    # right plot
+    bp2 = axes[1].boxplot(
+        ned,
+        patch_artist=True,
+        showfliers=False,
+        widths=0.2
+    )
+    #axes[1].set_xlabel(r'$\mathbb{P}(M=(0,0,1))$', fontsize=13)
+    axes[1].set_xticks(
+        range(1, len(labels) + 1),
+        labels,
+        fontsize=11,
+        rotation=0
+    )
+    axes[1].set_title('Negative energy distance')
+    
+    for patch, color in zip(bp2['boxes'], colors):
+            patch.set_facecolor(color)
+            patch.set_alpha(0.7)
+
+    if legend:
+        # shared legend
+        fig.legend(
+        handles=legend_handles,
+        loc='upper center',
+        bbox_to_anchor=(0.5, 1.2),
+        frameon=True,
+        fontsize=11,
+        ncol=1
+        )
+
+    fig.text(
+        0.5,              # horizontal position
+        0,               # vertical position
+        r'$\mathbb{P}(M=\mathbf{1})$',
+        va="center",
+        fontsize=13
+    )
+
+    plt.tight_layout()
+
+    plt.savefig(
+        os.path.join("figs", save_tag),
+        dpi=300,
+        bbox_inches="tight"
+    )
+
+    plt.close()
