@@ -3,30 +3,21 @@ from src.run_experiments import run
 from src.utils import plot1
 
 import torch
-import numpy as np
-import os
+import pandas as pd
 
-torch.manual_seed(42)
+#torch.manual_seed(42)
 
 dgms = ['gaussian_mixture_5', 'gaussian_mixture_20', 'Normal', 'Logistic', 'Logistic_d20']
 
-# global parameters
+#---------- Configurations ----------
 N = 2000
-
-# new samples
-n_samples = 2000
-
-# number of inits for the EM - sklearn and our method
-n_inits=20
-
+n_samples = 2000 # new samples
+n_inits=20 # number of inits for the EM - sklearn and our method
 crit = 'bic'
 ct = 'diag'
-
 pc = 0.5
 pam_range = [0.05, 0.1, 0.2, 0.3, 0.4]
-
 pc_range = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
-
 d = 3
 
 for dgm in dgms:
@@ -76,6 +67,7 @@ for dgm in dgms:
         var_complete=True
         )
 
+    # control missingness by P(worst missing pattern)
     # dss1, edss1, _ = run(
     #     X=X, 
     #     X_test=X_test,

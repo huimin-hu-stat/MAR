@@ -17,6 +17,7 @@ class DataGenerator:
         sigma: torch.tensor = None,
         pi: torch.tensor = None,
         alpha: float = 0.7,
+        delta: float = 0.01,
         df: Optional[int] = None,
         device: str = "cpu",
         dtype=torch.float64,
@@ -25,6 +26,7 @@ class DataGenerator:
         #self.N = N
         self.distr = distr
         self.alpha = alpha
+        self.delta = delta
         self.df = df
         self.device = device
         self.dtype = dtype
@@ -41,6 +43,11 @@ class DataGenerator:
         if distr == 'gaussian_mixture' and (mu is None or sigma is None or pi is None):
             raise ValueError(
                 "Gassian mixture requires mu, sigma, pi"
+            )
+
+        if delta > 1/3:
+            raise ValueError(
+                "delta is too large (> 1/3)"
             )
 
     # --------------------------------------------------
@@ -229,17 +236,15 @@ class DataGenerator:
     # --------------------------------------------------
     def sample_missingness(
         self,
-        X,
-        delta=0.01
+        X
     ):
         U1,U2 = self.latent_uniforms(X)
-
 
         probs = torch.stack(
             [
                 (U1+U2)/3,
-                (2-U1)/3,
-                (1-U2)/3
+                (2-U1)/3 - self.delta, # X2 missing
+                (1-U2)/3 + self.delta # X1 missing
             ],
             dim=1
         )
@@ -253,17 +258,17 @@ class DataGenerator:
                 torch.ones(
                     d,
                     device=self.device
-                ),
+                ), #(1,1,1)
 
                 torch.arange(
                     d,
                     device=self.device
-                ) != 1,
+                ) != 1, #(1,0,1)
 
                 torch.arange(
                     d,
                     device=self.device
-                ) != 0,
+                ) != 0, #(0,1,1)
             ]
         )
 

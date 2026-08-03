@@ -29,13 +29,14 @@ def run(
         ):
     
     _, d = X.shape
+    m = len(X_test)
 
     # Mask for complete data
     M_full = torch.ones_like(X)
 
     #------ KDE on complete data
     kde = gaussian_kde(X.T)
-    kde_ed = [energy_distance(X, torch.tensor(kde.resample(n_samples)).T).item() for _ in range(100)]
+    kde_ed = [energy_distance(X_test[i], torch.tensor(kde.resample(n_samples)).T).item() for i in range(m)]
 
     #------ MAR GM on complete data
     gmm_full = GaussianMixtureMAR(
@@ -49,7 +50,7 @@ def run(
     gmm_full.fit(X, M_full)
     print('best k =', gmm_full.best_k)
     # energy distance gainst train X
-    gmm_full_ed = [energy_distance(X, gmm_full.sample(n_samples)[0]) for _ in range(100)]
+    gmm_full_ed = [energy_distance(X_test[i], gmm_full.sample(n_samples)[0]) for i in range(m)]
 
     #------- SKlearn GM
     gmm_sk = GaussianMixture(
@@ -62,7 +63,7 @@ def run(
     # fit on complete data
     gmm_sk.fit(X)
     # energy distance gainst train X
-    gmm_sk_ed = [energy_distance(X, torch.tensor(gmm_sk.sample(n_samples)[0])) for _ in range(100)]
+    gmm_sk_ed = [energy_distance(X_test[i], torch.tensor(gmm_sk.sample(n_samples)[0])) for i in range(m)]
 
     #-------- MAR GM on different-missingness-level data
     eds = []
@@ -88,7 +89,7 @@ def run(
         gmm.fit(X_filled, M)
         print('best k =', gmm.best_k)
         # energy distance gainst train X
-        gmm_ed = [energy_distance(X, gmm.sample(n_samples)[0]) for _ in range(100)]
+        gmm_ed = [energy_distance(X_test[i], gmm.sample(n_samples)[0]) for i in range(m)]
         eds.append(gmm_ed)
         gms.append(gmm)
 
