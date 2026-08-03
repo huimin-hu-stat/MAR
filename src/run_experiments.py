@@ -60,7 +60,8 @@ def run(X, X_test, n_samples, k_range, crit='bic', n_inits=20, ct='diag', p_rang
         )
         gmm.fit(X_filled, M)
         print('best k =', gmm.best_k)
-        gmm_ed = [energy_distance(X_filled, gmm.sample(n_samples)[0]) for _ in range(100)]
+        # compare with train data
+        gmm_ed = [energy_distance(X, gmm.sample(n_samples)[0]) for _ in range(100)]
         eds.append(gmm_ed)
         gms.append(gmm)
 
