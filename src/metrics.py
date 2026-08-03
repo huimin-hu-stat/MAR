@@ -28,7 +28,9 @@ def energy_distance(X, Y):
     term_XX = (d_XX.sum() - d_XX.diagonal().sum()) / (n * (n - 1))
     term_YY = (d_YY.sum() - d_YY.diagonal().sum()) / (m * (m - 1))
 
-    return 2 * term_XY - term_XX - term_YY
+    ed = 2 * term_XY - term_XX - term_YY
+
+    return torch.clamp(ed, min=0.0) # avoid negative values
 
 # Example usage:
 # data: tensor of shape (n, 3)

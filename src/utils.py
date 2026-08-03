@@ -25,15 +25,6 @@ def missingness_dist(d, p_complete, p_all_missing=None):
     return np.append(pm, p_complete)
 
 
-def comp_density_score(kde, gms, X):
-    kde_score = np.mean(kde.logpdf(X.T))
-    m = len(gms)
-    gms_score = np.empty(m)
-    for i in range(m):
-        gms_score[i] = gms[i].evaluate(X).item()
-    return np.insert(gms_score, 0, kde_score)
-
-
 def plot(res_c, res_m, pc, pm, legend=True, is_ds=True):
     # '#ffb703'
     # Same colors used for the boxes

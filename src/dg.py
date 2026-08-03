@@ -229,9 +229,12 @@ class DataGenerator:
     # --------------------------------------------------
     def sample_missingness(
         self,
-        X
+        X,
+        delta=0.01
     ):
         U1,U2 = self.latent_uniforms(X)
+
+
         probs = torch.stack(
             [
                 (U1+U2)/3,
