@@ -26,7 +26,7 @@ class DataGenerator:
         #self.N = N
         self.distr = distr
         self.alpha = alpha
-        self.delta = delta
+        self.delta = torch.tensor(delta, device=device)
         self.df = df
         self.device = device
         self.dtype = dtype
@@ -45,9 +45,9 @@ class DataGenerator:
                 "Gassian mixture requires mu, sigma, pi"
             )
 
-        if delta > 1/3:
+        if delta > 1:
             raise ValueError(
-                "delta is too large (> 1/3)"
+                "delta is too large (> 1)"
             )
 
     # --------------------------------------------------
@@ -240,11 +240,14 @@ class DataGenerator:
     ):
         U1,U2 = self.latent_uniforms(X)
 
+        G1 = torch.maximum(U1, 2*self.delta)
+        G2 = torch.maximum(U2, 2*self.delta)
+
         probs = torch.stack(
             [
-                (U1+U2)/3,
-                (2-U1)/3 - self.delta, # X2 missing
-                (1-U2)/3 + self.delta # X1 missing
+                (G1+G2)/3,
+                (2-G1)/3, # X2 missing
+                (1-G2)/3 # X1 missing
             ],
             dim=1
         )

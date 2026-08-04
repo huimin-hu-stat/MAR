@@ -3,11 +3,11 @@ from src.run_experiments import run
 from src.utils import plot1
 
 import torch
-import pandas as pd
 
 #torch.manual_seed(42)
 
-dgms = ['gaussian_mixture_5', 'gaussian_mixture_20', 'Normal', 'Logistic', 'Logistic_d20']
+#dgms = ['gaussian_mixture_5', 'gaussian_mixture_20', 'Normal', 'Logistic', 'Logistic_d20']
+dgms = ['gaussian_mixture_5_d20', 'gaussian_mixture_20_d20', 'Normal_d20']
 
 #---------- Configurations ----------
 N = 2000
@@ -21,8 +21,8 @@ pc_range = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
 d = 20
 
 for dgm in dgms:
-    if dgm in ['gaussian_mixture_5', 'gaussian_mixture_20']:
-        if dgm == 'gaussian_mixture_5':
+    if dgm in ['gaussian_mixture_5_d20', 'gaussian_mixture_20_d20']:
+        if dgm == 'gaussian_mixture_5_d20':
             k_range = range(2, 9)
             k = 5
         else:
@@ -39,8 +39,8 @@ for dgm in dgms:
         dg = DataGenerator(dist, mu=mu0, sigma=sigma0, pi=pi0)
 
 
-    if dgm in ['Normal', 'Logistic', 'Logistic_20']:
-        if dgm == 'Normal': k_range = range(2, 9)
+    if dgm in ['Normal_d20', 'Logistic', 'Logistic_20']:
+        if dgm == 'Normal_d20': k_range = range(2, 9)
         else: k_range = range(88,95)
 
         if dgm == 'Logistic_20': d = 20
