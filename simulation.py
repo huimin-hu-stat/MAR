@@ -18,7 +18,7 @@ ct = 'diag'
 pc = 0.5
 pam_range = [0.05, 0.1, 0.2, 0.3, 0.4]
 pc_range = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
-d = 3
+d = 20
 
 for dgm in dgms:
     if dgm in ['gaussian_mixture_5', 'gaussian_mixture_20']:
