@@ -68,7 +68,7 @@ def plot(res_c, res_m, pc, pm, legend=True, is_ds=True):
         showfliers=False,
         widths=0.3
     )
-    axes[0].set_xlabel(r'$\mathbb{P}(M=\mathbf{1})$', fontsize=13)
+    axes[0].set_xlabel(r'$\mathbb{P}(M=\mathbf{0})$', fontsize=13)
     axes[0].set_xticks(
         range(1, len(labels_c) + 1),
         labels_c,
@@ -87,7 +87,7 @@ def plot(res_c, res_m, pc, pm, legend=True, is_ds=True):
         showfliers=False,
         widths=0.2
     )
-    axes[1].set_xlabel(r'$\mathbb{P}(M=(0,0,1))$', fontsize=13)
+    axes[1].set_xlabel(r'$\mathbb{P}(M=(1,1,0))$', fontsize=13)
     axes[1].set_xticks(
         range(1, len(labels_m) + 1),
         labels_m,
@@ -166,7 +166,7 @@ def plot1(ds, ned, pc, save_tag=None, legend=False):
         showfliers=False,
         widths=0.3
     )
-    #axes[0].set_xlabel(r'$\mathbb{P}(M=\mathbf{1})$', fontsize=13)
+    #axes[0].set_xlabel(r'$\mathbb{P}(M=\mathbf{0})$', fontsize=13)
     axes[0].set_xticks(
         range(1, len(labels) + 1),
         labels,
@@ -186,7 +186,7 @@ def plot1(ds, ned, pc, save_tag=None, legend=False):
         showfliers=False,
         widths=0.2
     )
-    #axes[1].set_xlabel(r'$\mathbb{P}(M=(0,0,1))$', fontsize=13)
+    #axes[1].set_xlabel(r'$\mathbb{P}(M=(1,1,0))$', fontsize=13)
     axes[1].set_xticks(
         range(1, len(labels) + 1),
         labels,
@@ -213,7 +213,7 @@ def plot1(ds, ned, pc, save_tag=None, legend=False):
     fig.text(
         0.5,              # horizontal position
         0,               # vertical position
-        r'$\mathbb{P}(M=\mathbf{1})$',
+        r'$\mathbb{P}(M=\mathbf{0})$',
         va="center",
         fontsize=13
     )
