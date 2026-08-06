@@ -10,7 +10,8 @@ class SingleMixture:
         cov_type,
         max_iter=100,
         tol=1e-6,
-        reg_covar=1e-2,
+        eps = 1e-6,
+        reg_covar=1e-6,
         n_init=5,
         device="cpu"
     ):
@@ -18,6 +19,7 @@ class SingleMixture:
         self.cov_type = cov_type
         self.max_iter = max_iter
         self.tol = tol
+        self.eps = eps
         self.reg_covar = reg_covar
         self.n_init = n_init
         self.device = device
@@ -39,9 +41,14 @@ class SingleMixture:
         
         # Random means
         #idx = torch.randperm(N, device=X.device)[:self.K]
-        idx = torch.randperm(X_valid.shape[0])[:self.K]
+        if len(X_valid) > self.K:
+            idx = torch.randperm(X_valid.shape[0], device=X.device)[:self.K]
 
+        idx = torch.randint(0, len(X_valid), (self.K,))
         self.mu = X_valid[idx]
+
+        # add noise
+        self.mu += torch.torch.randn_like(self.mu) * self.eps
 
         # Equal weights
         self.pi = torch.ones(
@@ -54,6 +61,10 @@ class SingleMixture:
         self.cov = torch.ones(
             (self.K, D),
             device=X.device)
+
+        assert self.mu.shape[0] == self.cov.shape[0], (
+                    f"K mismatch: mu={self.mu.shape}, cov={self.cov.shape}"
+                )
 
         return self
 
@@ -122,7 +133,7 @@ class SingleMixture:
 
         Nk = resp.sum(dim=0)
 
-        self.pi = Nk / Nk.sum()
+        self.pi = Nk / (Nk.sum() + self.eps)
 
         Nk_M = torch.einsum(
             "nk,nd->kd",
@@ -136,7 +147,7 @@ class SingleMixture:
             M,
             X
         )
-        self.mu /= Nk_M
+        self.mu /= (Nk_M + self.eps)
 
         diff = (
             X[:,None,:]
@@ -153,25 +164,24 @@ class SingleMixture:
         )
 
         if self.cov_type == 'diag':
-            self.cov /= Nk_M
+            self.cov /= (Nk_M + self.eps)
 
         if self.cov_type == 'id':
             self.cov = self.cov.sum(dim=1)
-            self.cov /= Nk_M.sum(dim=1)
+            self.cov /= (Nk_M.sum(dim=1) + self.eps)
             self.cov = self.cov[:, None].expand(-1, D)
 
         if self.cov_type == 'uni_diag':
             self.cov = self.cov.sum(dim=0)
-            self.cov /= Nk_M.sum(dim=0)
+            self.cov /= (Nk_M.sum(dim=0) + self.eps)
             self.cov = self.cov.expand(self.K, -1)
 
         if self.cov_type == 'uni_id':
             self.cov = self.cov.sum()
-            self.cov /= Nk_M.sum()
+            self.cov /= (Nk_M.sum() + self.eps)
             self.cov = self.cov.expand(self.K, D)
 
         # Regularization
-        self.cov = self.cov.clone()
         self.cov += self.reg_covar
 
         return self
@@ -258,20 +268,23 @@ class GaussianMixtureMAR:
         criterion="bic",
         cov_type='uni_diag',
         max_iter=100,
-        tol=1e-4,
+        tol=1e-6,
+        eps=1e-6,
         reg_covar=1e-6,
         n_init=5,
         device="cpu"
     ):
-        self.k_range = k_range
+        self.k_min, self.k_max = k_range
         self.criterion = criterion
         self.n_init = n_init
         self.cov_type = cov_type
         self.max_iter = max_iter
         self.tol = tol
+        self.eps = eps
         self.reg_covar = reg_covar
         self.n_init = n_init
         self.device = device
+        self._k_cache = {}
 
     def _num_p(self, D, K):
 
@@ -293,20 +306,102 @@ class GaussianMixtureMAR:
     def bic(self, loglik, p, N):
         return -2 * loglik + p * math.log(N)
 
-    import math
+    # def _evaluate(self, k, X, M):
+    #     """
+    #     Fit GMM(k) and return BIC.
+    #     Cached.
+    #     """
+    #     if k in self._k_cache:
+    #         return self._k_cache[k]
 
-    def _fit_k(self, D, X, M, N, k):
+    #     print(f"Evaluating k={k}")
+
+    #     model = SingleMixture(
+    #         n_components=k,
+    #         cov_type=self.cov_type,
+    #         max_iter=self.max_iter,
+    #         tol=self.tol,
+    #         eps=self.eps,
+    #         reg_covar=self.reg_covar,
+    #         n_init=self.n_init,
+    #         device=self.device,
+    #     )
+    #     model.fit(X, M)
+
+    #     # total log likelihood
+    #     loglik = model.best_ll
+
+    #     N, D = X.shape
+    #     p = self._num_p(D, k)
+
+    #     score = (
+    #         self.bic(loglik, p, N)
+    #         if self.criterion == "bic"
+    #         else self.aic(loglik, p)
+    #     )
+
+    #     self._k_cache[k] = {
+    #         "score": score,
+    #         "model": model
+    #     }
+
+    #     print(f'score={score}')
+
+    #     return self._k_cache[k]
+
+    # def search(self, X, M):
+    #     """
+    #     Binary search for minimum BIC.
+    #     """
+
+    #     left = self.k_min
+    #     right = self.k_max
+
+    #     while right - left > 3:
+
+    #         mid = (left + right) // 2
+
+    #         left_result = self._evaluate(mid, X, M)
+    #         right_result = self._evaluate(mid + 1, X, M)
+
+    #         if left_result["score"] < right_result["score"]:
+    #             right = mid
+    #         else:
+    #             left = mid + 1
+
+    #     # brute force small remaining interval
+    #     candidates = range(left, right + 1)
+
+    #     best = min(
+    #         candidates,
+    #         key=lambda k: self._evaluate(k, X, M)["score"]
+    #     )
+
+    #     result = self._evaluate(best, X, M)
+
+    #     self.best_k = best
+    #     self.best_score = result["score"]
+    #     self.best_model = result["model"]
+
+    #     print(f'best k = {self.best_k} | best score = {self.best_score}')
+
+    #     return self
+
+    def _fit_k(self, X, M, k):
         """Fit a single k and return its score, caching along the way."""
+        N, D = X.shape
+
         if k in self._k_cache:
             return self._k_cache[k]
 
         p = self._num_p(D, k)
 
         model = SingleMixture(
-            k,
+            n_components=k,
             cov_type=self.cov_type,
             max_iter=self.max_iter,
             tol=self.tol,
+            eps=self.eps,
             reg_covar=self.reg_covar,
             n_init=self.n_init,
             device=self.device,
@@ -325,7 +420,7 @@ class GaussianMixtureMAR:
         return self._k_cache[k]
 
 
-    def _search_k(self, D, X, M, N, k_min, k_max, tol=1):
+    def _search_k(self, X, M, tol=1):
         """
         Golden-section search over integer k in [k_min, k_max],
         minimizing BIC/AIC. Assumes roughly unimodal score in k.
@@ -333,25 +428,25 @@ class GaussianMixtureMAR:
         self._k_cache = {}
         gr = (math.sqrt(5) - 1) / 2
 
-        lo, hi = k_min, k_max
+        lo, hi = self.k_min, self.k_max
         c = int(round(hi - gr * (hi - lo)))
         d = int(round(lo + gr * (hi - lo)))
-        fc = self._fit_k(D, X, M, N, c)[0]
-        fd = self._fit_k(D, X, M, N, d)[0]
+        fc = self._fit_k(X, M, c)
+        fd = self._fit_k(X, M, d)
 
         while hi - lo > tol:
             if fc < fd:
                 hi, d, fd = d, c, fc
                 c = int(round(hi - gr * (hi - lo)))
-                fc = self._fit_k(D, X, M, N, c)[0]
+                fc = self._fit_k(X, M, c)
             else:
                 lo, c, fc = c, d, fd
                 d = int(round(lo + gr * (hi - lo)))
-                fd = self._fit_k(D, X, M, N, d)[0]
+                fd = self._fit_k(X, M, d)
 
         # brute-force the tiny remaining window to be safe
         for k in range(lo, hi + 1):
-            self._fit_k(D, X, M, N, k)
+            self._fit_k(X, M, k)
 
         best_k = min(self._k_cache, key=lambda k: self._k_cache[k][0])
         return best_k
@@ -359,13 +454,9 @@ class GaussianMixtureMAR:
 
     def fit(self, X, M):
 
-        N, D = X.shape
+        best_score = torch.inf
 
-        best_score = float("inf")
-
-        k_min, k_max = self.k_range[0], self.k_range[-1]
-
-        best_k = self._search_k(D, X, M, N, k_min, k_max)
+        self._search_k(X, M)
 
         for k, (score, model, p) in self._k_cache.items():
             if score < best_score:
