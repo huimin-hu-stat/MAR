@@ -293,36 +293,81 @@ class GaussianMixtureMAR:
     def bic(self, loglik, p, N):
         return -2 * loglik + p * math.log(N)
 
+    import math
+
+    def _fit_k(self, D, X, M, N, k):
+        """Fit a single k and return its score, caching along the way."""
+        if k in self._k_cache:
+            return self._k_cache[k]
+
+        p = self._num_p(D, k)
+
+        model = SingleMixture(
+            k,
+            cov_type=self.cov_type,
+            max_iter=self.max_iter,
+            tol=self.tol,
+            reg_covar=self.reg_covar,
+            n_init=self.n_init,
+            device=self.device,
+        )
+        model.fit(X, M)
+
+        loglik = model.best_ll
+        score = (
+            self.bic(loglik, p, N)
+            if self.criterion == "bic"
+            else self.aic(loglik, p)
+        )
+
+        self._k_cache[k] = (score, model, p)
+        print(f"  k={k} -> score={score:.4f}")
+        return self._k_cache[k]
+
+
+    def _search_k(self, D, X, M, N, k_min, k_max, tol=1):
+        """
+        Golden-section search over integer k in [k_min, k_max],
+        minimizing BIC/AIC. Assumes roughly unimodal score in k.
+        """
+        self._k_cache = {}
+        gr = (math.sqrt(5) - 1) / 2
+
+        lo, hi = k_min, k_max
+        c = int(round(hi - gr * (hi - lo)))
+        d = int(round(lo + gr * (hi - lo)))
+        fc = self._fit_k(D, X, M, N, c)[0]
+        fd = self._fit_k(D, X, M, N, d)[0]
+
+        while hi - lo > tol:
+            if fc < fd:
+                hi, d, fd = d, c, fc
+                c = int(round(hi - gr * (hi - lo)))
+                fc = self._fit_k(D, X, M, N, c)[0]
+            else:
+                lo, c, fc = c, d, fd
+                d = int(round(lo + gr * (hi - lo)))
+                fd = self._fit_k(D, X, M, N, d)[0]
+
+        # brute-force the tiny remaining window to be safe
+        for k in range(lo, hi + 1):
+            self._fit_k(D, X, M, N, k)
+
+        best_k = min(self._k_cache, key=lambda k: self._k_cache[k][0])
+        return best_k
+
+
     def fit(self, X, M):
 
         N, D = X.shape
 
         best_score = float("inf")
 
-        for k in self.k_range:
+        k_min, k_max = self.k_range[0], self.k_range[-1]
 
-            p = self._num_p(D, k)
+        best_k = self._search_k(D, X, M, N, k_min, k_max)
 
-            model = SingleMixture(
-                k,
-                cov_type=self.cov_type,
-                max_iter=self.max_iter,
-                tol=self.tol,
-                reg_covar=self.reg_covar,
-                n_init=self.n_init,
-                device=self.device,
-            )
-
-            model.fit(X, M)
-
-            loglik = model.best_ll
-
-            score = (
-                self.bic(loglik, p, N)
-                if self.criterion == "bic"
-                else self.aic(loglik, p)
-            )
-
+        for k, (score, model, p) in self._k_cache.items():
             if score < best_score:
                 best_score = score
                 self.best_model = model
@@ -331,6 +376,7 @@ class GaussianMixtureMAR:
                 self.best_ll = model.best_ll
 
         return self
+
 
     def sample(self, n_samples):
         return self.best_model.sample(n_samples)
