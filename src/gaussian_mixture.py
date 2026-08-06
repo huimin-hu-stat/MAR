@@ -40,13 +40,11 @@ class SingleMixture:
         X_valid = Xmiss[valid_rows]
         
         # Random means
-        #idx = torch.randperm(N, device=X.device)[:self.K]
+        # when X_valid is large enough
         if len(X_valid) > self.K:
             idx = torch.randperm(X_valid.shape[0], device=X.device)[:self.K]
-
         idx = torch.randint(0, len(X_valid), (self.K,))
         self.mu = X_valid[idx]
-
         # add noise
         self.mu += torch.torch.randn_like(self.mu) * self.eps
 
@@ -272,6 +270,7 @@ class GaussianMixtureMAR:
         eps=1e-6,
         reg_covar=1e-6,
         n_init=5,
+        _k_tol=1,
         device="cpu"
     ):
         self.k_min, self.k_max = k_range
@@ -285,6 +284,7 @@ class GaussianMixtureMAR:
         self.n_init = n_init
         self.device = device
         self._k_cache = {}
+        self._k_tol = _k_tol
 
     def _num_p(self, D, K):
 
@@ -306,86 +306,6 @@ class GaussianMixtureMAR:
     def bic(self, loglik, p, N):
         return -2 * loglik + p * math.log(N)
 
-    # def _evaluate(self, k, X, M):
-    #     """
-    #     Fit GMM(k) and return BIC.
-    #     Cached.
-    #     """
-    #     if k in self._k_cache:
-    #         return self._k_cache[k]
-
-    #     print(f"Evaluating k={k}")
-
-    #     model = SingleMixture(
-    #         n_components=k,
-    #         cov_type=self.cov_type,
-    #         max_iter=self.max_iter,
-    #         tol=self.tol,
-    #         eps=self.eps,
-    #         reg_covar=self.reg_covar,
-    #         n_init=self.n_init,
-    #         device=self.device,
-    #     )
-    #     model.fit(X, M)
-
-    #     # total log likelihood
-    #     loglik = model.best_ll
-
-    #     N, D = X.shape
-    #     p = self._num_p(D, k)
-
-    #     score = (
-    #         self.bic(loglik, p, N)
-    #         if self.criterion == "bic"
-    #         else self.aic(loglik, p)
-    #     )
-
-    #     self._k_cache[k] = {
-    #         "score": score,
-    #         "model": model
-    #     }
-
-    #     print(f'score={score}')
-
-    #     return self._k_cache[k]
-
-    # def search(self, X, M):
-    #     """
-    #     Binary search for minimum BIC.
-    #     """
-
-    #     left = self.k_min
-    #     right = self.k_max
-
-    #     while right - left > 3:
-
-    #         mid = (left + right) // 2
-
-    #         left_result = self._evaluate(mid, X, M)
-    #         right_result = self._evaluate(mid + 1, X, M)
-
-    #         if left_result["score"] < right_result["score"]:
-    #             right = mid
-    #         else:
-    #             left = mid + 1
-
-    #     # brute force small remaining interval
-    #     candidates = range(left, right + 1)
-
-    #     best = min(
-    #         candidates,
-    #         key=lambda k: self._evaluate(k, X, M)["score"]
-    #     )
-
-    #     result = self._evaluate(best, X, M)
-
-    #     self.best_k = best
-    #     self.best_score = result["score"]
-    #     self.best_model = result["model"]
-
-    #     print(f'best k = {self.best_k} | best score = {self.best_score}')
-
-    #     return self
 
     def _fit_k(self, X, M, k):
         """Fit a single k and return its score, caching along the way."""
@@ -420,12 +340,11 @@ class GaussianMixtureMAR:
         return self._k_cache[k]
 
 
-    def _search_k(self, X, M, tol=1):
+    def _search_k(self, X, M):
         """
         Golden-section search over integer k in [k_min, k_max],
         minimizing BIC/AIC. Assumes roughly unimodal score in k.
         """
-        self._k_cache = {}
         gr = (math.sqrt(5) - 1) / 2
 
         lo, hi = self.k_min, self.k_max
@@ -434,7 +353,7 @@ class GaussianMixtureMAR:
         fc = self._fit_k(X, M, c)
         fd = self._fit_k(X, M, d)
 
-        while hi - lo > tol:
+        while hi - lo > self._k_tol:
             if fc < fd:
                 hi, d, fd = d, c, fc
                 c = int(round(hi - gr * (hi - lo)))
@@ -458,7 +377,7 @@ class GaussianMixtureMAR:
 
         self._search_k(X, M)
 
-        for k, (score, model, p) in self._k_cache.items():
+        for k, (score, model, _) in self._k_cache.items():
             if score < best_score:
                 best_score = score
                 self.best_model = model
