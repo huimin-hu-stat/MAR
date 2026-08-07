@@ -6,8 +6,8 @@ import torch
 
 #torch.manual_seed(42)
 
-dgms = ['Logistic', 'Normal', 'gaussian_mixture']
-D = [20, 3]
+dgms = ['Normal', 'gaussian_mixture', 'Logistic']
+D = [3, 20]
 tags = [dgm + '_d_' + str(d) for dgm in dgms for d in D]
 
 #---------- Configurations ----------
@@ -70,8 +70,8 @@ for dgm in dgms:
         #     var_complete=False
         #     )
 
-        tag = dgm + '_d_' + str(d)
+        path = dgm + '_d_' + str(d)
 
-        plot1(dss, -edss, pc_range, save_tag=tag, legend=False)
+        plot1(dss, -edss, pc_range, save_to_path=path, legend=False)
 
-        print(tag, 'finish')
+        print(path, 'finish')
