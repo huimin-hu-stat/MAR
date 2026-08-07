@@ -6,15 +6,16 @@ import torch
 
 #torch.manual_seed(42)
 
-dgms = ['Normal', 'gaussian_mixture', 'Logistic']
-D = [3, 20]
+#['Normal']#, 'gaussian_mixture', 
+dgms = ['Logistic']
+D = [20]
 tags = [dgm + '_d_' + str(d) for dgm in dgms for d in D]
 
 #---------- Configurations ----------
 k_range = (1, 100)
 
 k = 20
-alpha = 0.7
+alpha = 0.5
 
 N = 2000
 n_samples = 2000 # new samples

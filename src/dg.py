@@ -63,7 +63,7 @@ class DataGenerator:
 
 
     # --------------------------------------------------
-    # Copula
+    # Copula in FLOWGEM
     # --------------------------------------------------
     def sample_copula(
         self,
@@ -90,6 +90,37 @@ class DataGenerator:
         Urest = self.rand(n, d-2)
 
         return torch.column_stack([U1, U2, Urest])
+
+
+    # --------------------------------------------------
+    # Gaussian copula
+    # --------------------------------------------------
+    def sample_gaussian_copula(self, n, d):
+        """
+        Sample from a Gaussian copula.
+
+        Args:
+            n: number of samples
+            R: (d,d) correlation matrix
+
+        Returns:
+            U: (n,d) samples with Uniform(0,1) margins
+        """
+        R = self._ar1_cov(d)
+
+        # Cholesky factor
+        L = torch.linalg.cholesky(R)
+
+        # Independent standard normals
+        Z = torch.randn(n, d, device=self.device, dtype=self.dtype)
+
+        # Correlated normals
+        Z = Z @ L.T
+
+        # Normal CDF -> uniforms
+        U = torch.special.ndtr(Z)
+
+        return U
     
 
     # --------------------------------------------------
@@ -122,6 +153,17 @@ class DataGenerator:
         else:
             raise NotImplementedError
 
+
+    def _ar1_cov(self, d):
+        idx = torch.arange(d, device=self.device)
+        cov = self.alpha ** (idx[:, None] - idx[None, :]).abs().to(self.dtype)
+
+        # Independent last variable
+        cov[-1, :] = 0
+        cov[:, -1] = 0
+        cov[-1, -1] = 1
+        return cov
+
     # --------------------------------------------------
     # Gaussian special case
     # --------------------------------------------------
@@ -136,14 +178,7 @@ class DataGenerator:
             dtype=self.dtype
         )
 
-        cov = torch.eye(
-            d,
-            device=self.device,
-            dtype=self.dtype
-        )
-
-        cov[0,1] = self.alpha
-        cov[1,0] = self.alpha
+        cov = self._ar1_cov(d=d)
 
         mvn = MultivariateNormal(mean, cov)
 
@@ -187,7 +222,7 @@ class DataGenerator:
         if self.distr == 'gaussian_mixture':
             return self.sample_gmm(n)
 
-        U = self.sample_copula(n, d)
+        U = self.sample_gaussian_copula(n, d)
 
         return self.inverse_cdf(U)
 
