@@ -7,15 +7,11 @@ import torch
 #torch.manual_seed(42)
 
 dgms = ['Logistic', 'Normal', 'gaussian_mixture']
-D = [3, 20]
+D = [20, 3]
 tags = [dgm + '_d_' + str(d) for dgm in dgms for d in D]
 
 #---------- Configurations ----------
-k_ranges = {
-    'gaussian_mixture': range(5, 30),
-    'Normal': range(2, 9),
-    'Logistic': range(88, 95)
-}
+k_range = (1, 100)
 
 k = 20
 alpha = 0.7
@@ -31,7 +27,6 @@ pc_range = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
 
 for dgm in dgms:
     for d in D:
-        k_range = k_ranges[dgm]
         
         if dgm == 'gaussian_mixture':
             mu0 = torch.rand((k, d)) * 2 - 1 # [-1, 1]

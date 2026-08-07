@@ -180,6 +180,7 @@ class SingleMixture:
             self.cov = self.cov.expand(self.K, D)
 
         # Regularization
+        self.cov = self.cov.clone()
         self.cov += self.reg_covar
 
         return self
