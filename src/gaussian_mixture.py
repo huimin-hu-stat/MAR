@@ -351,18 +351,18 @@ class GaussianMixtureMAR:
         lo, hi = self.k_min, self.k_max
         c = int(round(hi - gr * (hi - lo)))
         d = int(round(lo + gr * (hi - lo)))
-        fc = self._fit_k(X, M, c)
-        fd = self._fit_k(X, M, d)
+        fc = self._fit_k(X, M, c)[0]
+        fd = self._fit_k(X, M, d)[0]
 
         while hi - lo > self._k_tol:
             if fc < fd:
                 hi, d, fd = d, c, fc
                 c = int(round(hi - gr * (hi - lo)))
-                fc = self._fit_k(X, M, c)
+                fc = self._fit_k(X, M, c)[0]
             else:
                 lo, c, fc = c, d, fd
                 d = int(round(lo + gr * (hi - lo)))
-                fd = self._fit_k(X, M, d)
+                fd = self._fit_k(X, M, d)[0]
 
         # brute-force the tiny remaining window to be safe
         for k in range(lo, hi + 1):
