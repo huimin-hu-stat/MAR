@@ -6,22 +6,21 @@ import torch
 
 #torch.manual_seed(42)
 
-#['Normal']#, 'gaussian_mixture', 
-dgms = ['Logistic']
+dgms = ['Normal', 'Logistic', 'gaussian_mixture']
 D = [20]
-tags = [dgm + '_d_' + str(d) for dgm in dgms for d in D]
 
 #---------- Configurations ----------
 k_range = (1, 100)
 
 k = 20
-alpha = 0.5
+alpha = 0.7
 
 N = 2000
 n_samples = 2000 # new samples
-n_inits=20 # number of inits for the EM - sklearn and our method
-crit = 'bic'
-ct = 'diag'
+n_inits=30 # number of inits for the EM - sklearn and our method
+crit = 'aic' # aic for p(M=0) >= 0.6, and bic for p(M=0) < 0.6
+ct = 'uni_diag'
+is_mis_penalize = True # discounted N or not in calculating bic score
 # pc = 0.5
 # pam_range = [0.05, 0.1, 0.2, 0.3, 0.4]
 pc_range = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
@@ -52,6 +51,7 @@ for dgm in dgms:
             crit=crit,
             n_inits=n_inits,
             ct=ct,
+            is_mis_penalize=is_mis_penalize,
             p_range=pc_range,
             pc=None, 
             var_complete=True
@@ -71,7 +71,7 @@ for dgm in dgms:
         #     var_complete=False
         #     )
 
-        path = dgm + '_d_' + str(d)
+        path = dgm + '_d_' + str(d) + '_N_' + str(N) + '_' + crit + '_' + ct + '_init_' + str(n_inits) + '_validN_' + str(is_mis_penalize)
 
         plot1(dss, -edss, pc_range, save_to_path=path, legend=False)
 

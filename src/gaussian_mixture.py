@@ -8,6 +8,7 @@ class SingleMixture:
         self,
         n_components,
         cov_type,
+        is_mis_penalize=False,
         max_iter=100,
         tol=1e-6,
         eps = 1e-6,
@@ -17,6 +18,7 @@ class SingleMixture:
     ):
         self.K = n_components
         self.cov_type = cov_type
+        self.is_mis_penalize = is_mis_penalize
         self.max_iter = max_iter
         self.tol = tol
         self.eps = eps
@@ -266,6 +268,7 @@ class GaussianMixtureMAR:
         k_range,
         criterion="bic",
         cov_type='uni_diag',
+        is_mis_penalize=False,
         max_iter=100,
         tol=1e-6,
         eps=1e-6,
@@ -278,6 +281,7 @@ class GaussianMixtureMAR:
         self.criterion = criterion
         self.n_init = n_init
         self.cov_type = cov_type
+        self.is_mis_penalize = is_mis_penalize
         self.max_iter = max_iter
         self.tol = tol
         self.eps = eps
@@ -303,6 +307,7 @@ class GaussianMixtureMAR:
 
     def aic(self, loglik, p):
         return -2 * loglik + 2 * p
+
     
     def bic(self, loglik, p, N):
         return -2 * loglik + p * math.log(N)
@@ -320,6 +325,7 @@ class GaussianMixtureMAR:
         model = SingleMixture(
             n_components=k,
             cov_type=self.cov_type,
+            is_mis_penalize=self.is_mis_penalize,
             max_iter=self.max_iter,
             tol=self.tol,
             eps=self.eps,
@@ -330,10 +336,16 @@ class GaussianMixtureMAR:
         model.fit(X, M)
 
         loglik = model.best_ll
+        # additional penalizing of the missingness to aic
+        mis_penal = 0
+        if self.is_mis_penalize:
+            mis_ratio = 1 - M.mean()
+            mis_penal = p * (-2 + math.log(mis_ratio) + math.log(N))
+
         score = (
             self.bic(loglik, p, N)
             if self.criterion == "bic"
-            else self.aic(loglik, p)
+            else self.aic(loglik, p) + mis_penal
         )
 
         self._k_cache[k] = (score, model, p)

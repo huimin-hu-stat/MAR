@@ -23,6 +23,7 @@ def run(
         crit='bic', # selection criterion of k
         n_inits=20, # multi initiations
         ct='diag', # diag, id, uni_diag, uni_id
+        is_mis_penalize=False,
         p_range=None, # 1) prob(fully observed); 2) prob(worst missingness)
         pc=None, # fixed prob(fully observed)
         var_complete=True # if varying prob(fully observed); 2) else varying prob(worst missingness)
@@ -78,13 +79,35 @@ def run(
         # induce missingness
         X0, M = ampute_mar(X, pp)
         X_filled = torch.nan_to_num(X0, nan=0.0)
-        gmm = GaussianMixtureMAR(
-            k_range=k_range, 
-            criterion=crit,
-            device='cpu', 
-            cov_type=ct, 
-            n_init=n_inits
-        )
+
+        if var_complete and crit == 'mix':
+            if  p >=0.6:
+                gmm = GaussianMixtureMAR(
+                    k_range=k_range, 
+                    criterion='aic',
+                    device='cpu', 
+                    cov_type=ct,
+                    is_mis_penalize=is_mis_penalize,
+                    n_init=n_inits
+                )
+            elif p < 0.6:
+                gmm = GaussianMixtureMAR(
+                            k_range=k_range, 
+                            criterion='bic',
+                            device='cpu', 
+                            cov_type=ct, 
+                            n_init=n_inits
+                        )
+
+        else:
+            gmm = GaussianMixtureMAR(
+                        k_range=k_range, 
+                        criterion=crit,
+                        device='cpu', 
+                        cov_type=ct, 
+                        n_init=n_inits
+                    )
+            
         # fit on missing data
         gmm.fit(X_filled, M)
         print('best k =', gmm.best_k)
