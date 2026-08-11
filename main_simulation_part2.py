@@ -18,9 +18,9 @@ alpha = 0.7
 N = 2000
 n_samples = 2000 # new samples
 n_inits=30 # number of inits for the EM - sklearn and our method
-crit = 'aic' # aic for p(M=0) >= 0.6, and bic for p(M=0) < 0.6
+crit = 'aic' # (aic, bic, mix). mix: aic for p(M=0) >= 0.6, and bic for p(M=0) < 0.6
 ct = 'uni_diag'
-is_mis_penalize = True # discounted N or not in calculating bic score
+is_mis_penalize = False # True if discount N or in calculating bic score; defaul False to compute usual aic/bic
 # pc = 0.5
 # pam_range = [0.05, 0.1, 0.2, 0.3, 0.4]
 pc_range = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]

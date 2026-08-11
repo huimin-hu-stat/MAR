@@ -3,8 +3,8 @@ from typing import Optional, Tuple
 
 from torch.distributions import Normal, StudentT, MultivariateNormal, Categorical
 
-
-# TO DO: add gaussian mixture data
+# Similar to the DG in FLOWGEM
+# ADDITION: logistic distribution; gaussian copula; t distribution
 
 class DataGenerator:
 
