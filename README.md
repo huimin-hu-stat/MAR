@@ -2,3 +2,5 @@
 
 This repository contains the official implementation of the paper:
 
+https://arxiv.org/abs/2608.10113
+
