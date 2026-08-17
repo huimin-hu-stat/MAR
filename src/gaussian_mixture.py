@@ -51,7 +51,7 @@ class SingleMixture:
         idx = torch.randint(0, len(X_valid), (self.K,))
         self.mu = X_valid[idx]
         # add noise
-        self.mu += torch.torch.randn_like(self.mu) * self.eps
+        self.mu += torch.randn_like(self.mu) * self.eps
 
         # Equal weights
         self.pi = torch.ones(
@@ -100,7 +100,7 @@ class SingleMixture:
         log_det = (torch.log(var)[None, :, :] * M[:, None, :]).sum(dim=(2))
 
         return -0.5 * (
-            D * math.log(2 * math.pi)
+            D * math.log(2 * math.pi) # to confirm
             + log_det #(N,K)
             + mahal #(N,K)
         )
