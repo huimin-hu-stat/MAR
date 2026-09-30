@@ -43,12 +43,15 @@ class SingleMixture:
         
         # Random means
         # when X_valid is large enough
-        if len(X_valid) > self.K:
-            idx = torch.randperm(X_valid.shape[0], device=X.device)[:self.K]
+        # Sampling without replacement
+        # idx = torch.randperm(X_valid.shape[0], device=X.device)[:self.K]
+
+        # Sampling with replacement to ensure enough rows for however large K
+        # Though we didn't see performance change yet compared to sampling without replacement
         idx = torch.randint(0, len(X_valid), (self.K,))
         self.mu = X_valid[idx]
         # add noise
-        self.mu += torch.torch.randn_like(self.mu) * self.eps
+        self.mu += torch.randn_like(self.mu) * self.eps
 
         # Equal weights
         self.pi = torch.ones(
@@ -97,7 +100,7 @@ class SingleMixture:
         log_det = (torch.log(var)[None, :, :] * M[:, None, :]).sum(dim=(2))
 
         return -0.5 * (
-            D * math.log(2 * math.pi)
+            D * math.log(2 * math.pi) # to confirm
             + log_det #(N,K)
             + mahal #(N,K)
         )
